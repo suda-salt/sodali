@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>账单分析 · Bill Analyzer</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<input type="file" id="fileInput" multiple accept=".csv,.txt,.zip" hidden>
+
+<div class="app">
+
+  <!-- ==================== 左侧栏 ==================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-top">
+      <div class="logo">￥</div>
+      <div class="sb-title"><b>账单分析</b><span>本地解析</span></div>
+      <button class="sb-hide" id="sbToggle" title="收起侧栏">«</button>
+    </div>
+
+    <div class="sb-label">时间范围</div>
+    <div class="sb-scroll">
+      <button class="sb-tree-item" data-t="all"><span>总览（全部）</span><em id="cntAll">0</em></button>
+      <div id="sbTree"></div>
+    </div>
+
+    <div class="sb-foot">
+      <div class="nick-box">
+        <label for="nickInput">称呼</label>
+        <input type="text" id="nickInput" placeholder="怎么称呼你？" maxlength="12">
+      </div>
+      <button class="sb-mini" id="btnRules">⚙ 分类规则</button>
+      <button class="btn sm danger ghost" id="btnClear" style="width:100%">清空数据</button>
+    </div>
+  </aside>
+
+  <!-- ==================== 主区域 ==================== -->
+  <div class="main">
+    <header class="topbar">
+      <button class="btn icon sb-show" id="sbShow" title="展开侧栏">☰</button>
+      <div class="tb-title" id="tbTitle">账单分析</div>
+      <div class="top-actions">
+        <button class="btn primary" id="btnPick">上传账单</button>
+        <button class="btn" id="btnExport">导出 CSV</button>
+        <button class="btn icon" id="btnTheme" title="切换主题">◐</button>
+      </div>
+    </header>
+
+    <nav class="tabs" id="viewTabs">
+      <button data-v="overview" class="on">总览</button>
+      <button data-v="pending">待归类 <em id="tabPending">0</em></button>
+      <button data-v="refund">退款冲销 <em id="tabRefund">0</em></button>
+    </nav>
+
+    <!-- ---------- 空状态 ---------- -->
+    <section class="uploader" id="uploader">
+      <div class="upload-card" id="dropZone">
+        <div class="upload-icon">⇪</div>
+        <h2>上传账单文件，开始分析</h2>
+        <p>支持支付宝、微信支付导出的原始账单，可一次拖入多个文件（CSV 或 ZIP 压缩包）</p>
+        <button class="btn primary lg" id="btnPick2">选择文件</button>
+        <div class="upload-hint">
+          <div><b>支付宝</b>：我的 → 账单 → 右上角「…」→ 开具交易流水证明 → 用于个人对账 → 下载账单</div>
+          <div><b>微信</b>：我 → 服务 → 钱包 → 账单 → 常见问题 → 下载账单 → 用于个人对账</div>
+        </div>
+        <div class="privacy">🔒 全部解析在你的浏览器本地完成，账单数据不会上传到任何服务器</div>
+        <div class="demo-link">还没有导出账单？<a href="?demo=1">先看一组示例数据 →</a></div>
+      </div>
+      <div class="loader" id="loader" hidden><div class="spin"></div><span id="loadMsg">解析中…</span></div>
+      <div class="file-list" id="fileList"></div>
+    </section>
+
+    <!-- ---------- 仪表盘 ---------- -->
+    <main class="dash" id="dash" hidden>
+
+      <div class="greet" id="greet"></div>
+
+      <section class="filters">
+        <div class="row">
+          <div class="seg" id="rangeSeg">
+            <button data-r="today">今日</button>
+            <button data-r="week">本周</button>
+            <button data-r="month" class="on">本月</button>
+            <button data-r="last30">近30天</button>
+            <button data-r="year">今年</button>
+            <button data-r="all">全部</button>
+          </div>
+          <div class="date-range">
+            <input type="date" id="fromDate"><span>至</span><input type="date" id="toDate">
+          </div>
+          <div class="grow"></div>
+          <div class="pull-right">
+            <button class="btn sm" id="btnReport">查看分析报告</button>
+            <button class="btn sm" id="btnAdd">继续添加</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="chips" id="sourceChips"></div>
+          <div class="chips" id="flowChips"></div>
+          <select id="catSelect" class="select"><option value="">全部分类</option></select>
+          <input type="search" id="searchInput" class="search" placeholder="搜索商家 / 商品 / 备注…">
+          <span class="count-badge" id="statBadge"></span>
+        </div>
+        <div class="row">
+          <div class="switch-group">
+            <label class="switch"><input type="checkbox" id="swTrans"><span></span>计入转账提现</label>
+            <label class="switch"><input type="checkbox" id="swRefund" checked><span></span>退款自动冲销</label>
+            <label class="switch"><input type="checkbox" id="swExclude" checked><span></span>日均剔除大额</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- 总览视图 -->
+      <div id="viewOverview">
+        <section class="kpis" id="kpis"></section>
+        <section class="card insight" id="insight"></section>
+        <section class="grid">
+          <div class="card span2">
+            <div class="card-head">
+              <h3>收支趋势</h3>
+              <div class="seg small" id="granSeg">
+                <button data-g="day" class="on">按日</button>
+          <button data-g="week">按周</button>
+                <button data-g="month">按月</button>
+              </div>
+            </div>
+            <div class="chart" id="chartTrend"></div>
+            <div class="legend-inline"><i style="background:#f43f5e"></i>支出<i style="background:#22c55e"></i>收入</div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>支出构成</h3><span class="hint">点击可下钻</span></div>
+            <div class="chart" id="chartCat"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>商户排行</h3><span class="hint">支出 Top 10</span></div>
+            <div class="chart" id="chartRank"></div>
+          </div>
+          <div class="card span2">
+            <div class="card-head"><h3>每日支出热力图</h3><span class="hint">近半年</span></div>
+            <div class="chart" id="chartHeat"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>资金流向</h3><span class="hint">按收/支</span></div>
+            <div class="chart" id="chartFlow"></div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-head">
+            <h3>交易明细</h3>
+            <div class="pull-right">
+              <span class="hint" id="tableInfo"></span>
+              <button class="btn sm" id="btnExportCur">导出当前结果</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="detailTable">
+              <thead>
+                <tr>
+                  <th data-sort="ts" class="sortable">时间</th>
+                  <th data-sort="source">来源</th>
+                  <th>交易对方</th>
+                  <th>商品说明</th>
+                  <th data-sort="cat">分类</th>
+                  <th data-sort="amount" class="num sortable">金额(元)</th>
+                  <th>支付方式</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="pager" id="pager"></div>
+        </section>
+      </div>
+
+      <!-- 待归类视图 -->
+      <div id="viewPending" hidden>
+        <section class="card">
+          <div class="card-head">
+            <h3>待归类任务</h3>
+            <span class="hint" id="pendingHint"></span>
+            <div class="pull-right">
+              <input type="text" id="pendingSearch" class="search" placeholder="筛选待归类…">
+            </div>
+          </div>
+          <div class="task-list" id="pendingList"></div>
+        </section>
+      </div>
+
+      <!-- 退款冲销视图 -->
+      <div id="viewRefund" hidden>
+        <section class="card">
+          <div class="card-head">
+            <h3>退款冲销</h3>
+            <span class="hint" id="refundHint"></span>
+            <div class="pull-right">
+              <button class="btn sm" id="btnRefundAllOn">全部冲销</button>
+              <button class="btn sm ghost" id="btnRefundAllOff">全部取消</button>
+            </div>
+          </div>
+          <div class="recon-list" id="refundList"></div>
+        </section>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ==================== 右侧抽屉 ==================== -->
+<div class="mask" id="mask" hidden></div>
+<aside class="rdrawer" id="rdrawer" hidden>
+  <div class="rd-head">
+    <h3 id="rdTitle">详情</h3>
+    <button class="btn icon" id="rdClose">✕</button>
+  </div>
+  <div class="rd-body" id="rdBody"></div>
+</aside>
+
+<!-- ==================== 上传模式弹窗 ==================== -->
+<div class="modal" id="uploadModal" hidden>
+  <div class="modal-card">
+    <h3>已有账单数据</h3>
+    <p id="uploadModalMsg"></p>
+    <div class="modal-opts">
+      <button class="modal-opt" id="optAppend">
+        <b>保留上次数据</b>
+        <span>把新账单追加进来，自动跳过重复记录</span>
+      </button>
+      <button class="modal-opt" id="optReplace">
+        <b>覆盖上次数据</b>
+        <span>先清空已有记录，只保留本次导入的账单</span>
+      </button>
+    </div>
+    <button class="btn ghost sm" id="optCancel">取消</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/engine.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/classify.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/reconcile.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
